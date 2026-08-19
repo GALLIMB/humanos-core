@@ -1,3 +1,3 @@
-venv/
-__pycache__/
-.env
+New-Item -ItemType File -Path .gitignore
+Add-Content .gitignore "venv/"
+Add-Content .gitignore "__pycache__/"
