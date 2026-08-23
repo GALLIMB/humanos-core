@@ -10,6 +10,6 @@ class Solution(Base):
     problem = Column(Text, nullable=False)
     diagnosis = Column(Text, nullable=True)
     gaps = Column(Text, nullable=True)
-    solutions = Column(Text, nullable=True)  # نخزنها كنص JSON
+    solutions = Column(Text, nullable=True)
     action_plan = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# SQLite سهلة وما تحتاجش تثبيت إضافي
+# استعمال SQLite (سهل للتجربة)
 SQLALCHEMY_DATABASE_URL = "sqlite:///./humanos.db"
 
 engine = create_engine(
@@ -12,8 +12,8 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
 
-# دالة لفتح جلسة قاعدة البيانات في كل طلب
 def get_db():
+    """دالة للحصول على جلسة قاعدة البيانات"""
     db = SessionLocal()
     try:
         yield db
