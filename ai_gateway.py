@@ -7,133 +7,132 @@ load_dotenv()
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# ===== الدالة الأساسية: حل المشكلة =====
 def solve_problem(problem_text: str, user_language: str = "ar"):
     if not GEMINI_API_KEY:
-        return {"error": "مفتاح Gemini مش موجود، ضيفو في ملف .env"}
+        return {"error": "❌ مفتاح Gemini غير موجود في ملف .env"}
+    
+    if not problem_text or len(problem_text.strip()) < 3:
+        return {"error": "❌ المشكلة قصيرة جداً. اكتب وصفاً أوضح."}
 
     prompt = f"""
-    أنت HumanOS، مساعد شخصي ذكي.
-    المستخدم قال: "{problem_text}"
+    أنت HumanOS، مستشار ذكي. المستخدم قال: "{problem_text}"
 
-    قم بتحليل المشكلة وقدّم الحل في هذا الشكل (JSON فقط، من غير أي كلام زيادة):
+    حلل هذه المشكلة وقدّم إجابة عملية وواضحة بهذا الشكل (JSON فقط، بدون أي كلام إضافي):
     {{
-        "diagnosis": "تشخيص المشكلة",
-        "gaps": "الفجوات أو الأسباب",
-        "solutions": ["حل أول", "حل ثاني"],
-        "action_plan": "خطة تنفيذية للأسبوع القادم"
+        "diagnosis": "تشخيص دقيق للمشكلة",
+        "gaps": "الفجوات أو الأسباب الرئيسية",
+        "solutions": ["حل عملي 1", "حل عملي 2", "حل عملي 3"],
+        "action_plan": "خطة تنفيذية خطوة بخطوة للأسبوع القادم"
     }}
     اللغة: {user_language}
     """
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-exp:generateContent?key={GEMINI_API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
     
     payload = {
-        "contents": [{
-            "parts": [{"text": prompt}]
-        }]
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 800}
     }
 
     try:
-        response = requests.post(url, json=payload)
+        response = requests.post(url, json=payload, timeout=30)
         
         if response.status_code != 200:
-            return {
-                "error": f"خطأ من Gemini (HTTP {response.status_code}): {response.text}"
-            }
+            return {"error": f"❌ خطأ من Gemini (HTTP {response.status_code}): {response.text[:200]}"}
         
         data = response.json()
         
-        if "candidates" not in data:
-            return {
-                "error": f"الرد من Gemini مش متوقع: {json.dumps(data, indent=2)[:800]}"
-            }
+        if "candidates" not in data or not data["candidates"]:
+            return {"error": "❌ لم يتلقَ النظام رداً صحيحاً من Gemini"}
         
         text_response = data["candidates"][0]["content"]["parts"][0]["text"]
         
+        # تنظيف النص من علامات Markdown
+        clean_text = text_response.strip()
+        if clean_text.startswith("```json"):
+            clean_text = clean_text[7:]
+        if clean_text.startswith("```"):
+            clean_text = clean_text[3:]
+        if clean_text.endswith("```"):
+            clean_text = clean_text[:-3]
+        clean_text = clean_text.strip()
+        
         try:
-            if text_response.startswith("```json"):
-                text_response = text_response[7:-3]
-            elif text_response.startswith("```"):
-                text_response = text_response[3:-3]
-            
-            result_json = json.loads(text_response)
-            return result_json
+            result = json.loads(clean_text)
+            # التأكد من وجود الحقول المطلوبة
+            for key in ["diagnosis", "gaps", "solutions", "action_plan"]:
+                if key not in result:
+                    result[key] = "لا يوجد"
+            return result
         except json.JSONDecodeError:
-            return {"result": text_response}
+            # إذا لم يكن JSON صحيحاً، نعيد النص كـ نتيجة
+            return {
+                "diagnosis": text_response[:300],
+                "gaps": "لم يتم تحليل الفجوات",
+                "solutions": ["راجع النص أعلاه"],
+                "action_plan": text_response[300:600] if len(text_response) > 300 else "يرجى مراجعة التحليل"
+            }
             
+    except requests.exceptions.Timeout:
+        return {"error": "❌ انتهت مهلة الاتصال بـ Gemini. حاول مرة أخرى."}
     except requests.exceptions.RequestException as e:
-        return {"error": f"خطأ في الاتصال بـ Gemini: {str(e)}"}
+        return {"error": f"❌ خطأ في الاتصال: {str(e)}"}
     except Exception as e:
-        return {"error": f"خطأ غير متوقع: {str(e)}"}
+        return {"error": f"❌ خطأ غير متوقع: {str(e)}"}
 
-# ===== الدالة الجديدة: محاكي المستقبل =====
 def simulate_future(age: int, job: str, income: float, skills: str, goal: str, language: str = "ar"):
     if not GEMINI_API_KEY:
-        return {"error": "مفتاح Gemini مش موجود"}
+        return {"error": "❌ مفتاح Gemini غير موجود"}
 
     prompt = f"""
-    أنت HumanOS، خبير في تحليل المسارات المهنية والحياتية.
-    المستخدم عمره {age} سنة، يعمل كـ {job}، دخله {income} دولار شهرياً، مهاراته: {skills}، وهدفه: {goal}.
+    أنت HumanOS، خبير في تحليل المسارات المهنية.
+    المستخدم: عمره {age}، يعمل كـ {job}، دخله {income}$، مهاراته: {skills}، هدفه: {goal}.
 
-    بناءً على هذه المعطيات، قدّم 3 سيناريوهات مستقبلية مفصلة (JSON فقط، بدون أي كلام زيادة):
-    1. سيناريو "البقاء على الحال": ماذا يحدث بعد 5 سنوات إذا استمر على نفس المسار؟
-    2. سيناريو "التطوير الذاتي": ماذا يحدث إذا تعلم مهارة جديدة (اقترح واحدة) واستثمر فيها؟
-    3. سيناريو "التغيير الكامل": ماذا يحدث إذا غير مهنته إلى مجال آخر (اقترح مجالاً)؟
+    قدّم 3 سيناريوهات مستقبلية مفصلة (JSON فقط):
+    1. البقاء على الحال بعد 5 سنوات
+    2. تطوير مهارة جديدة
+    3. تغيير المهنة
 
-    الشكل المطلوب:
+    الشكل:
     {{
-        "scenario_stay": {{
-            "title": "البقاء على الحال",
-            "description": "...",
-            "income_after_5_years": "...",
-            "satisfaction": "..."
-        }},
-        "scenario_learn": {{
-            "title": "التطوير الذاتي",
-            "description": "...",
-            "skill_to_learn": "...",
-            "income_after_5_years": "...",
-            "satisfaction": "..."
-        }},
-        "scenario_change": {{
-            "title": "التغيير الكامل",
-            "description": "...",
-            "new_career": "...",
-            "income_after_5_years": "...",
-            "satisfaction": "..."
-        }}
+        "scenario_stay": {{"title": "البقاء على الحال", "description": "...", "income_after_5_years": "...", "satisfaction": "..."}},
+        "scenario_learn": {{"title": "التطوير الذاتي", "description": "...", "skill_to_learn": "...", "income_after_5_years": "...", "satisfaction": "..."}},
+        "scenario_change": {{"title": "التغيير الكامل", "description": "...", "new_career": "...", "income_after_5_years": "...", "satisfaction": "..."}}
     }}
     اللغة: {language}
     """
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-exp:generateContent?key={GEMINI_API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
     
     payload = {
-        "contents": [{
-            "parts": [{"text": prompt}]
-        }]
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 800}
     }
 
     try:
-        response = requests.post(url, json=payload)
+        response = requests.post(url, json=payload, timeout=30)
         if response.status_code != 200:
-            return {"error": f"خطأ من Gemini (HTTP {response.status_code}): {response.text}"}
+            return {"error": f"❌ خطأ من Gemini (HTTP {response.status_code})"}
         
         data = response.json()
         if "candidates" not in data:
-            return {"error": f"الرد مش متوقع: {json.dumps(data, indent=2)[:800]}"}
+            return {"error": "❌ رد غير متوقع من Gemini"}
         
         text_response = data["candidates"][0]["content"]["parts"][0]["text"]
         
+        clean_text = text_response.strip()
+        if clean_text.startswith("```json"):
+            clean_text = clean_text[7:]
+        if clean_text.startswith("```"):
+            clean_text = clean_text[3:]
+        if clean_text.endswith("```"):
+            clean_text = clean_text[:-3]
+        clean_text = clean_text.strip()
+        
         try:
-            if text_response.startswith("```json"):
-                text_response = text_response[7:-3]
-            elif text_response.startswith("```"):
-                text_response = text_response[3:-3]
-            return json.loads(text_response)
+            return json.loads(clean_text)
         except json.JSONDecodeError:
             return {"result": text_response}
             
     except Exception as e:
-        return {"error": f"خطأ: {str(e)}"}
+        return {"error": f"❌ خطأ: {str(e)}"}
